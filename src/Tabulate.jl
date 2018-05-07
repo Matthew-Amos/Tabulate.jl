@@ -1,61 +1,73 @@
+module Tabulate
+
 using NamedArrays
 using VariableTypes
 using IterTools.product
 
-abstract type Identity end
-
-v1 = ["A","A","B","C","D","D"]
-v2 = [true, false, true, false, true, true]
-v3 = [3, 5, 4, 2, 2, 3]
-v4 = [10.5, 11.7, 13.8, 8.6, 9.2, 6.0]
-
-function tabulate(v1, f=length)
-    tabulate(v1, [:freq], f)
+function tabulate(vrows, vcols, f=length)
+    tabulate(vartype(vrows)(), vartype(vcols)(), vrows, vcols, f)
 end
 
-function tabulate(v1, v2, f=length; v1_type=Identity, v2_type=Identity)
-    v1_t = v1_type == Identity ? vartype(v1) : v1_type
-    v2_t = v2_type == Identity ? vartype(v2) : v2_type
-
-    categoricals = sum([v1_t <: Categorical, v2_t <: Categorical])
-
-    if categoricals == 2
-        # Two categoricals, default to count by unique combinations
-        rl, cl = (unique(v1), unique(v2))
-        combn = product(rl, cl)
-        ind = find_matches([v1, v2], combn)
-        # should f be applied here?
-        tab = NamedArray(reshape(length.(ind), (length(rl), length(cl))), (rl, cl))
-    elseif categoricals == 1
-        # One categorical, default to sum by it
-        f = f == length ? sum : f
-        if v1_t <: Categorical
-            rl, cl = (unique(v1), [:val])
-            ind = find_matches([v1], rl)
-            tab = NamedArray(reshape(f.([v2[ind[i]] for i=1:length(ind)]), (length(rl), length(cl))), (rl, cl))
-        else
-            rl, cl = ([:val], unique(v2))
-            ind = find_matches([v2], cl)
-            tab = NamedArray(reshape(f.([v1[ind[i]] for i=1:length(ind)]), (length(rl), length(cl))), (rl, cl))
-        end
-    else
-        # No categoricals, default to count by bins
-        error("Binning not yet supported")
-    end
-    return(tab)
+function tabulate(vrows, vcols, vvals, f=sum)
+    tabulate(vartype(vrows)(), vartype(vcols)(), vartype(vvals)(), vrows, vcols, vvals, f)
 end
 
-function tabulate(v1, v2, vals, f; v1_type=Identity, v2_type=Identity, vals_type=Identity)
-
+function tabulate{C <: Categorical, Q <: Quantitative}(rowtype::C,
+                  coltype::Q,
+                  vrows,
+                  vcols,
+                  f=length)
+    rl, cl = (unique(vrows), [:val])
+    ind = find_matches([vrows], rl)
+    views = [view(vcols, ind[i]) for i=1:length(ind)]
+    tab(views, rl, cl, f)
 end
 
-# case for:
-#  cat cat
-#  cat qnt / qnt cat
+function tabulate{C <: Categorical, Q <: Quantitative}(rowtype::Q,
+                  coltype::C,
+                  vrows,
+                  vcols,
+                  f=length)
+    rl, cl = ([:val], unique(vcols))
+    ind = find_matches([vcols], cl)
+    views = [view(vrows, ind[i]) for i=1:length(ind)]
+    tab(views, rl, cl, f)
+end
 
-# Internal
-# ========
-# Return views
+function tabulate{C <: Categorical}(rowtype::C,
+                  coltype::C,
+                  vrows,
+                  vcols,
+                  f=length)
+    rl, cl = (unique(vrows), unique(vcols))
+    ind = find_matches([vrows, vcols], product(rl, cl))
+    tab(ind, rl, cl, f)
+end
+
+function tabulate{C <: Categorical, Q <: Quantitative}(rowtype::C,
+                  coltype::C,
+                  valtype::Q,
+                  vrows,
+                  vcols,
+                  vvals,
+                  f=sum)
+
+     rl, cl = (unique(vrows), unique(vcols))
+     ind = ind = find_matches([vrows, vcols], product(rl, cl))
+     views = [view(vvals, ind[i]) for i=1:length(ind)]
+     tab(views, rl, cl, f)
+end
+
+
+function tab(views, rl, cl, f=length)
+    return(
+        NamedArray(
+            reshape(f.(views), (length(rl), length(cl))),
+            (rl, cl)
+        )
+    )
+end
+
 function find_matches(varr, k)
     buffer = Array{Array{Int, 1}, 1}(length(k))
     i = 0
@@ -67,3 +79,5 @@ function find_matches(varr, k)
     end
     return(buffer)
 end
+
+end # module
