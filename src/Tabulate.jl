@@ -1,14 +1,16 @@
 module Tabulate
 
-using NamedArrays
-using VariableTypes
-using IterTools.product
+using   NamedArrays,
+        VariableTypes,
+        IterTools.product
 
-function tabulate(vrows, vcols, f=length)
+export  tabulate
+
+function tabulate(vrows, vcols, f::Function=length)
     tabulate(vartype(vrows)(), vartype(vcols)(), vrows, vcols, f)
 end
 
-function tabulate(vrows, vcols, vvals, f=sum)
+function tabulate(vrows, vcols, vvals, f::Function=sum)
     tabulate(vartype(vrows)(), vartype(vcols)(), vartype(vvals)(), vrows, vcols, vvals, f)
 end
 
@@ -16,7 +18,7 @@ function tabulate{C <: Categorical, Q <: Quantitative}(rowtype::C,
                   coltype::Q,
                   vrows,
                   vcols,
-                  f=length)
+                  f::Function=length)
     rl, cl = (unique(vrows), [:val])
     ind = find_matches([vrows], rl)
     views = [view(vcols, ind[i]) for i=1:length(ind)]
@@ -27,7 +29,7 @@ function tabulate{C <: Categorical, Q <: Quantitative}(rowtype::Q,
                   coltype::C,
                   vrows,
                   vcols,
-                  f=length)
+                  f::Function=length)
     rl, cl = ([:val], unique(vcols))
     ind = find_matches([vcols], cl)
     views = [view(vrows, ind[i]) for i=1:length(ind)]
@@ -38,7 +40,7 @@ function tabulate{C <: Categorical}(rowtype::C,
                   coltype::C,
                   vrows,
                   vcols,
-                  f=length)
+                  f::Function=length)
     rl, cl = (unique(vrows), unique(vcols))
     ind = find_matches([vrows, vcols], product(rl, cl))
     tab(ind, rl, cl, f)
@@ -50,7 +52,7 @@ function tabulate{C <: Categorical, Q <: Quantitative}(rowtype::C,
                   vrows,
                   vcols,
                   vvals,
-                  f=sum)
+                  f::Function=sum)
 
      rl, cl = (unique(vrows), unique(vcols))
      ind = ind = find_matches([vrows, vcols], product(rl, cl))
@@ -59,7 +61,7 @@ function tabulate{C <: Categorical, Q <: Quantitative}(rowtype::C,
 end
 
 
-function tab(views, rl, cl, f=length)
+function tab(views, rl, cl, f::Function=length)
     return(
         NamedArray(
             reshape(f.(views), (length(rl), length(cl))),
